@@ -31,7 +31,7 @@ public class TestedClass {
     }
 
     @Test(priority = 3)
-    public int methodMul(int a, int b) {
+    private int methodMul(int a, int b) {
         return a * b;
     }
 

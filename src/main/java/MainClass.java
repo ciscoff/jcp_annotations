@@ -1,6 +1,7 @@
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -11,10 +12,19 @@ public class MainClass {
 
     public static void main(String[] args) {
         Class testedClazz = TestedClass.class;
-        start(testedClazz);
+
+        try {
+            start(testedClazz);
+        } catch (Exception e) {e.printStackTrace();}
     }
 
-    public static void start(Class<?> clazz) {
+    /**
+     * Запускаем тесты
+     */
+    public static void start(Class<?> clazz) throws IllegalAccessException,
+            InstantiationException,
+            InvocationTargetException {
+
         Method[] methods = clazz.getDeclaredMethods();
 
         // Складываем тестируемые методы и их метаданные в список отсортированный
@@ -26,60 +36,35 @@ public class MainClass {
                         .sorted(AnnoComp)
                         .collect(Collectors.toList());
 
-        // Проверка сортировки
-//        for (MetaData m : meta) {
-//            System.out.println(m.getAnno().priority());
-//        }
+        // Создать инстанс тестируемого класса
+        Object ts = clazz.newInstance();
 
-        TestedClass ts = new TestedClass();
-
-        // Вызываем методы из списка.
-        // Аргументы генерим сами
+        // Вызываем методы @Test из списка.
+        // Аргументы генерим сами.
         for (MetaData md : meta) {
             Method m = md.getMethod();
             Class<?>[] types = m.getParameterTypes();
             Object[] args = new Object[types.length];
 
+            // Сгенерить массив аргументов
             for (int i = 0; i < types.length; i++) {
                 args[i] = DataSource.genArg(types[i].getSimpleName());
-
-//                switch (types[i].getSimpleName()) {
-//                    case "int":
-//                        args[i] = DataSource.genInt();
-//                        break;
-//                    case "long":
-//                        args[i] = DataSource.getLong();
-//                        break;
-//                    case "float":
-//                        args[i] = DataSource.getFloat();
-//                        break;
-//                    case "double":
-//                        args[i] = DataSource.genDouble();
-//                        break;
-//                    case "String":
-//                        args[i] = DataSource.getString();
-//                        break;
-//                    default:
-//                        args[i] = new Object();
-//                }
             }
 
-            try {
-                System.out.println("Trying to call method:\n\t"
-                        + m.getReturnType().getSimpleName()
-                        + " " + m.getName() + ":" + Arrays.asList(args)
-                );
-
-                System.out.println("Result:\n\t" + m.invoke(ts, args) + "\n");
-//                m.invoke(ts, args);
-
-            } catch (InvocationTargetException e) {
-                e.printStackTrace();
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
+            // Проверка приватного доступа
+            if(Modifier.isPrivate(m.getModifiers())) {
+                m.setAccessible(true);
             }
+
+            // Инфо о методе
+            System.out.println("Trying to call method:\n\t"
+                    + m.getReturnType().getSimpleName()
+                    + " " + m.getName() + ":" + Arrays.asList(args)
+            );
+
+            // Вызов метода и печать результата
+            System.out.println("Result:\n\t" + m.invoke(ts, args) + "\n");
         }
-
     }
 
     /**
@@ -122,11 +107,11 @@ class DataSource {
     private static final Random random = new Random();
 
     public static byte genByte() {
-        return (byte)random.nextInt(100);
+        return (byte) random.nextInt(100);
     }
 
     public static short genShort() {
-        return (short)random.nextInt(100);
+        return (short) random.nextInt(100);
     }
 
     public static int genInt() {
@@ -155,7 +140,7 @@ class DataSource {
     public static Object genArg(String type) {
         Object obj = new Object();
 
-        switch (type){
+        switch (type) {
             case "byte":
                 obj = DataSource.genByte();
                 break;
