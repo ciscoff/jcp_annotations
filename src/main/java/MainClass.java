@@ -57,10 +57,16 @@ public class MainClass {
             }
 
             // Инфо о методе
+//            System.out.println("Trying to call method:\n\t"
+//                    + m.getReturnType().getSimpleName()
+//                    + " " + m.getName() + ":" + Arrays.asList(args)
+//            );
+
             System.out.println("Trying to call method:\n\t"
                     + m.getReturnType().getSimpleName()
                     + " " + m.getName() + ":" + Arrays.asList(args)
             );
+
 
             // Вызов метода и печать результата
             System.out.println("Result:\n\t" + m.invoke(ts, args) + "\n");
