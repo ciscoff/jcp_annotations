@@ -2,10 +2,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class MainClass {
@@ -14,95 +11,125 @@ public class MainClass {
         Class testedClazz = TestedClass.class;
 
         try {
+            //start("TestedClass");
             start(testedClazz);
-        } catch (Exception e) {e.printStackTrace();}
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     /**
      * Запускаем тесты
      */
-    public static void start(Class<?> clazz) throws IllegalAccessException,
-            InstantiationException,
-            InvocationTargetException {
+    public static void start(Object obj) throws IllegalAccessException, InstantiationException, ClassNotFoundException {
+
+        Class<?> clazz = null;
+
+        if(obj instanceof Class<?>) {
+            clazz = (Class<?>)obj;
+        } else if(obj instanceof String) {
+            clazz = Class.forName((String) obj);
+        } else {
+            System.out.println("Incorrect argument int method start()");
+            return;
+        }
 
         Method[] methods = clazz.getDeclaredMethods();
 
-        // Складываем тестируемые методы и их метаданные в список отсортированный
-        // по значению priority аннотации Test
-        List<MetaData> meta =
+        // Все методы @Test складываем в List сортируя по priority
+        List<Method> methodTest =
                 Arrays.stream(methods)
                         .filter(m -> (m.getAnnotation(Test.class) != null))
-                        .map(m -> new MetaData(m, m.getAnnotation(Test.class)))
-                        .sorted(AnnoComp)
+                        .sorted(MethodComp)
                         .collect(Collectors.toList());
 
+        // Методы @BeforeSuite
+        List<Method> beforeSuite = Arrays.stream(methods)
+                .filter(m -> (m.getAnnotation(BeforeSuite.class) != null))
+                .collect(Collectors.toList());
+
+        // Методы @AfterSuite
+        List<Method> afterSuite = Arrays.stream(methods)
+                .filter(m -> (m.getAnnotation(AfterSuite.class) != null))
+                .collect(Collectors.toList());
+
         // Создать инстанс тестируемого класса
-        Object ts = clazz.newInstance();
+        Object instance = clazz.newInstance();
 
-        // Вызываем методы @Test из списка.
-        // Аргументы генерим сами.
-        for (MetaData md : meta) {
-            Method m = md.getMethod();
-            Class<?>[] types = m.getParameterTypes();
-            Object[] args = new Object[types.length];
-
-            // Сгенерить массив аргументов
-            for (int i = 0; i < types.length; i++) {
-                args[i] = DataSource.genArg(types[i].getSimpleName());
+        try {
+            // Должно присутствовать по одному методу с
+            // аннотациями @BeforeSuite и @AfterSuite
+            if (beforeSuite.size() != 1 || afterSuite.size() != 1) {
+                throw new RuntimeException("One or more required methods are missing");
             }
 
-            // Проверка приватного доступа
-            if(Modifier.isPrivate(m.getModifiers())) {
-                m.setAccessible(true);
+            // Далее вызываются все методы с аннотациями.
+            // Аргументы генерим через класс DataSource.
+
+            // @BeforeSuite
+            methodCaller(instance, beforeSuite.get(0), beforeSuite.get(0).getAnnotation(BeforeSuite.class).toString());
+
+            // @Test
+            for (Method m : methodTest) {
+                methodCaller(instance, m, m.getAnnotation(Test.class).toString());
             }
 
-            // Инфо о методе
-//            System.out.println("Trying to call method:\n\t"
-//                    + m.getReturnType().getSimpleName()
-//                    + " " + m.getName() + ":" + Arrays.asList(args)
-//            );
-
-            System.out.println("Trying to call method:\n\t"
-                    + m.getReturnType().getSimpleName()
-                    + " " + m.getName() + ":" + Arrays.asList(args)
-            );
-
-
-            // Вызов метода и печать результата
-            System.out.println("Result:\n\t" + m.invoke(ts, args) + "\n");
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+        } finally {
+            // @AfterSuite
+            if (afterSuite.size() == 1) {
+                methodCaller(instance, afterSuite.get(0), afterSuite.get(0).getAnnotation(AfterSuite.class).toString());
+            }
         }
     }
 
     /**
-     * Comparator для сравнения аннотаций по полю priority
+     * TODO: Вызыватель метода.
+     * TODO: Аргументы генерим через класс DataSource
      */
-    public static Comparator<MetaData> AnnoComp = new Comparator<MetaData>() {
+    public static void methodCaller(Object instance, Method m, String annotation) {
+
+        Class<?>[] types = m.getParameterTypes();
+        Object[] args = new Object[types.length];
+
+        // Сгенерить массив аргументов
+        for (int i = 0; i < types.length; i++) {
+            args[i] = DataSource.genArg(types[i].getSimpleName());
+        }
+
+        // Проверка приватного доступа
+        if (Modifier.isPrivate(m.getModifiers())) {
+            m.setAccessible(true);
+        }
+
+        System.out.println("Trying to call method:\n\t"
+                + annotation + "\n\t"
+                + m.getReturnType().getSimpleName()
+                + " " + m.getName() + ":" + Arrays.asList(args)
+        );
+
+        try {
+            // Вызов метода и печать результата
+            System.out.println("Result:\n\t" + m.invoke(instance, args) + "\n");
+
+        } catch (InvocationTargetException e) {
+            e.printStackTrace();
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Comparator для сравнения методов по значению
+     * priority аннотации @Test
+     */
+    public static Comparator<Method> MethodComp = new Comparator<Method>() {
         @Override
-        public int compare(MetaData m1, MetaData m2) {
-            return Integer.compare(m1.getAnno().priority(), m2.getAnno().priority());
+        public int compare(Method m1, Method m2) {
+            return Integer.compare(m1.getAnnotation(Test.class).priority(), m2.getAnnotation(Test.class).priority());
         }
     };
-}
-
-/**
- * Контейнер для хранения метода и его аннотации
- */
-class MetaData {
-    private Method method;
-    private Test anno;
-
-    public MetaData(Method method, Test anno) {
-        this.method = method;
-        this.anno = anno;
-    }
-
-    public Method getMethod() {
-        return method;
-    }
-
-    public Test getAnno() {
-        return anno;
-    }
 }
 
 /**
@@ -112,31 +139,31 @@ class DataSource {
 
     private static final Random random = new Random();
 
-    public static byte genByte() {
+    static byte genByte() {
         return (byte) random.nextInt(100);
     }
 
-    public static short genShort() {
+    static short genShort() {
         return (short) random.nextInt(100);
     }
 
-    public static int genInt() {
+    static int genInt() {
         return random.nextInt(100);
     }
 
-    public static long getLong() {
+    static long getLong() {
         return random.nextLong();
     }
 
-    public static float getFloat() {
+    static float getFloat() {
         return random.nextFloat();
     }
 
-    public static double genDouble() {
+    static double genDouble() {
         return random.nextDouble();
     }
 
-    public static String getString() {
+    static String getString() {
         String[] strings = {
                 "Ольга", "Иван", "Андрей", "Артем"
         };

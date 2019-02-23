@@ -22,12 +22,12 @@ public class TestedClass {
 
     @BeforeSuite
     public void beforeTest(){
-        System.out.println("Start tests");
+        System.out.println("Hello from method with annotation @BeforeTest\nTests are starting");
     }
 
     @AfterSuite
     public void afterTest(){
-        System.out.println("Tests executed");
+        System.out.println("Hello from method with annotation @AfterTest");
     }
 
     @Test(priority = 3)
