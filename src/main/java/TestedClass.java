@@ -22,12 +22,12 @@ public class TestedClass {
 
     @BeforeSuite
     public void beforeTest(){
-        System.out.println("Start test");
+        System.out.println("Start tests");
     }
 
     @AfterSuite
     public void afterTest(){
-        System.out.println("Start executed");
+        System.out.println("Tests executed");
     }
 
     @Test(priority = 3)
@@ -36,7 +36,7 @@ public class TestedClass {
     }
 
     @Test(priority = 1)
-    public int methosAdd(int a, int b) {
+    public int methodAdd(int a, int b) {
         return a + b;
     }
 
