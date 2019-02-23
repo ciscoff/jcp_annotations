@@ -1,4 +1,3 @@
-import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -133,7 +132,7 @@ public class MainClass {
 }
 
 /**
- * Генератор данных притивных типов и строк
+ * Генератор данных примитивных типов и строк
  */
 class DataSource {
 
